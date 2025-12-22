@@ -36,11 +36,22 @@ fn vs_main(in: VertexInput) -> VertexOutput {
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    let light_dir = normalize(params.light.xyz - in.position);
-    let shading = clamp(dot(light_dir, normalize(in.normal)), 0.1, 1.0);
-    let color = textureSample(texture, samplr, in.uv);
-    return vec4<f32>(color.xyz * shading, 1.0);
+    let N = normalize(in.normal);
+
+    // lumière point (params.light.xyz = position de la lumière en world)
+    let Lvec = params.light.xyz - in.position;
+    let L = normalize(Lvec);
+
+    // Lambert propre = max(dot, 0) + un ambient séparé
+    let ndotl = max(dot(N, L), 0.0);
+
+    let ambient = 0.18;
+    let shading = ambient + (1.0 - ambient) * ndotl;
+
+    let albedo = textureSample(texture, samplr, in.uv);
+    return vec4<f32>(albedo.xyz * shading, 1.0);
 }
+
 
 // --- Debug cloth points (billboard quads) ---
 struct PointsInstanceInput {
