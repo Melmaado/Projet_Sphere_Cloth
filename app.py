@@ -225,7 +225,7 @@ class App:
         self.sphere_radius_step = 0.05
 
         # Fix A: limit how fast radius can change (prevents energy injection)
-        self.sphere_radius_max_speed = 0.30  # radius units per second
+        self.sphere_radius_max_speed = 1  # radius units per second
 
         # Sphere mesh at radius=1 centered at origin (we update positions on the GPU buffer)
         tmpl_vtx, sph_idx = sphere(48, 24, center=(0.0, 0.0, 0.0), radius=1.0)
