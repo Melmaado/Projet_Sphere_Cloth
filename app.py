@@ -279,49 +279,49 @@ class App:
 
         # Solid-color pipeline (sphere skin without texture)
         solid_wgsl = """
-struct RenderParams {
-    light: vec4<f32>,
-    view: mat4x4<f32>,
-    proj: mat4x4<f32>,
-    viewport: vec2<f32>,
-    point_size: f32,
-    _pad0: f32,
-};
+            struct RenderParams {
+                light: vec4<f32>,
+                view: mat4x4<f32>,
+                proj: mat4x4<f32>,
+                viewport: vec2<f32>,
+                point_size: f32,
+                _pad0: f32,
+            };
 
-@group(0) @binding(0) var<uniform> params: RenderParams;
-// Keep bindings compatible with the existing bind group layout:
-@group(0) @binding(1) var texture: texture_2d<f32>;
-@group(0) @binding(2) var samplr: sampler;
+            @group(0) @binding(0) var<uniform> params: RenderParams;
+            // Keep bindings compatible with the existing bind group layout:
+            @group(0) @binding(1) var texture: texture_2d<f32>;
+            @group(0) @binding(2) var samplr: sampler;
 
-struct VertexInput {
-    @location(0) position: vec3<f32>,
-    @location(1) normal: vec3<f32>,
-    @location(2) uv: vec2<f32>,
-};
+            struct VertexInput {
+                @location(0) position: vec3<f32>,
+                @location(1) normal: vec3<f32>,
+                @location(2) uv: vec2<f32>,
+            };
 
-struct VertexOutput {
-    @builtin(position) clip: vec4<f32>,
-    @location(0) position: vec3<f32>,
-    @location(1) normal: vec3<f32>,
-};
+            struct VertexOutput {
+                @builtin(position) clip: vec4<f32>,
+                @location(0) position: vec3<f32>,
+                @location(1) normal: vec3<f32>,
+            };
 
-@vertex
-fn vs_main(in: VertexInput) -> VertexOutput {
-    var out: VertexOutput;
-    out.clip = params.proj * params.view * vec4<f32>(in.position, 1.0);
-    out.position = in.position;
-    out.normal = in.normal;
-    return out;
-}
+            @vertex
+            fn vs_main(in: VertexInput) -> VertexOutput {
+                var out: VertexOutput;
+                out.clip = params.proj * params.view * vec4<f32>(in.position, 1.0);
+                out.position = in.position;
+                out.normal = in.normal;
+                return out;
+            }
 
-@fragment
-fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    let light_dir = normalize(params.light.xyz - in.position);
-    let shading = clamp(dot(light_dir, normalize(in.normal)), 0.15, 1.0);
-    let base = vec3<f32>(0.85, 0.85, 0.90);
-    return vec4<f32>(base * shading, 1.0);
-}
-"""
+            @fragment
+            fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
+                let light_dir = normalize(params.light.xyz - in.position);
+                let shading = clamp(dot(light_dir, normalize(in.normal)), 0.15, 1.0);
+                let base = vec3<f32>(0.85, 0.85, 0.90);
+                return vec4<f32>(base * shading, 1.0);
+            }
+        """
         solid_shader = self.device.create_shader_module(code=solid_wgsl)
         self.pipeline_sphere_solid = self.device.create_render_pipeline(
             layout=p_layout,
@@ -345,42 +345,42 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 
         # Wireframe pipeline for cloth mesh view
         wire_wgsl = """
-struct RenderParams {
-    light: vec4<f32>,
-    view: mat4x4<f32>,
-    proj: mat4x4<f32>,
-    viewport: vec2<f32>,
-    point_size: f32,
-    _pad0: f32,
-};
+            struct RenderParams {
+                light: vec4<f32>,
+                view: mat4x4<f32>,
+                proj: mat4x4<f32>,
+                viewport: vec2<f32>,
+                point_size: f32,
+                _pad0: f32,
+            };
 
-@group(0) @binding(0) var<uniform> params: RenderParams;
-@group(0) @binding(1) var texture: texture_2d<f32>;
-@group(0) @binding(2) var samplr: sampler;
+            @group(0) @binding(0) var<uniform> params: RenderParams;
+            @group(0) @binding(1) var texture: texture_2d<f32>;
+            @group(0) @binding(2) var samplr: sampler;
 
-struct VertexInput {
-    @location(0) position: vec3<f32>,
-    @location(1) normal: vec3<f32>,
-    @location(2) uv: vec2<f32>,
-};
+            struct VertexInput {
+                @location(0) position: vec3<f32>,
+                @location(1) normal: vec3<f32>,
+                @location(2) uv: vec2<f32>,
+            };
 
-struct VertexOutput {
-    @builtin(position) clip: vec4<f32>,
-};
+            struct VertexOutput {
+                @builtin(position) clip: vec4<f32>,
+            };
 
-@vertex
-fn vs_main(in: VertexInput) -> VertexOutput {
-    var out: VertexOutput;
-    out.clip = params.proj * params.view * vec4<f32>(in.position, 1.0);
-    return out;
-}
+            @vertex
+            fn vs_main(in: VertexInput) -> VertexOutput {
+                var out: VertexOutput;
+                out.clip = params.proj * params.view * vec4<f32>(in.position, 1.0);
+                return out;
+            }
 
-@fragment
-fn fs_main(v: VertexOutput) -> @location(0) vec4<f32> {
-    _ = v.clip; // phony use
-    return vec4<f32>(0.05, 0.05, 0.05, 1.0);
-}
-"""
+            @fragment
+            fn fs_main(v: VertexOutput) -> @location(0) vec4<f32> {
+                _ = v.clip; // phony use
+                return vec4<f32>(0.05, 0.05, 0.05, 1.0);
+            }
+        """
         wire_shader = self.device.create_shader_module(code=wire_wgsl)
         self.pipeline_cloth_wire = self.device.create_render_pipeline(
             layout=p_layout,
