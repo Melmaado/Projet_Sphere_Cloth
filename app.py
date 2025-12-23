@@ -437,6 +437,11 @@ class App:
         self.k_struct = 1200.0
         self.k_shear = 900.0
         self.k_bend = 250.0
+        # One slider controls the overall cloth rigidity (scales all spring stiffnesses).
+        self.rigidity = 1.0
+        self._k_struct_base = self.k_struct
+        self._k_shear_base = self.k_shear
+        self._k_bend_base = self.k_bend
         self.c_d = 1.5
         self.vel_damping = 0.995
         self.friction = 0.2
@@ -447,45 +452,15 @@ class App:
         self.last = time.perf_counter()
 
         # ---- reset support ----
-        self._reset_requested = False
-        self._default_sphere_radius = 0.75
-        self._default_sphere_center = np.array([0.0, 0.0, 0.0], dtype=np.float32)
-        self._default_sphere_skin = 0
-        self._default_cloth_skin = 0
-        self._default_point_size = 6.0
-        self._default_mass = 0.25
-        self._default_y0 = 1.2
-        self._cloth_vtx0 = self.cloth.vtx0.copy()
+        # Reset should only reset cloth position/velocity (keep UI params and skins).
+        self._reset_cloth_requested = False
 
         # The draw loop updates the camera uniform every frame (including point_size).
-        # Ensure this exists immediately, even before the first reset/UI interaction.
-        self.point_size = float(self._default_point_size)
+        self.point_size = 6.0
 
-    def reset_all(self):
-        # Reset time
-        self.t = 0.0
-        self.last = time.perf_counter()
-
-        # Reset skins
-        self.sphere_skin = int(self._default_sphere_skin)
-        self.cloth_skin = int(self._default_cloth_skin)
-        self.point_size = float(self._default_point_size)
-
-        # Reset sphere params
-        self.sphere_center = self._default_sphere_center.copy()
-        self.sphere_radius_target = float(self._default_sphere_radius)
-        self.sphere_radius = float(self._default_sphere_radius)
-
-        # Upload sphere mesh immediately
-        self.sphere_mesh.update(self.sphere_center, self.sphere_radius, force=True)
-
-# Reset cloth simulation buffers (pos/vel) and visible mesh
-        self.cloth.reset(y0=self._default_y0, mass=self._default_mass)
-
-# Reset camera (optional but nice)
-        self.camera = Camera(45, 900 / 650, 0.1, 200, 4.0, np.pi / 4, np.pi / 6)
-        if self.size != (0, 0):
-            self.camera.aspect = self.size[0] / self.size[1]
+    def reset_cloth(self):
+        """Reset only the cloth state (positions/velocities + vertex buffer)."""
+        self.cloth.reset()
 
     def process_event(self, event):
         # Disable camera interaction over the UI area (and when ImGui wants mouse).
@@ -550,6 +525,46 @@ class App:
         if changed:
             self.cloth_skin = int(skin)
 
+        imgui.separator()
+        imgui.text("Simulation")
+
+        imgui.text("Gravity (Y)")
+        changed, val = imgui.slider_float(
+            "##GravityY",
+            float(self.gravity[1]),
+            -30.0,
+            0.0,
+            "%.2f",
+        )
+        if changed:
+            self.gravity[1] = float(val)
+
+        imgui.text("Friction")
+        changed, val = imgui.slider_float(
+            "##Friction",
+            float(self.friction),
+            0.0,
+            1.0,
+            "%.3f",
+        )
+        if changed:
+            self.friction = float(val)
+
+        imgui.text("Cloth rigidity")
+        changed, val = imgui.slider_float(
+            "##Rigidity",
+            float(self.rigidity),
+            0.0,
+            5.0,
+            "%.2f",
+        )
+        if changed:
+            self.rigidity = float(val)
+            self.k_struct = self._k_struct_base * self.rigidity
+            self.k_shear = self._k_shear_base * self.rigidity
+            self.k_bend = self._k_bend_base * self.rigidity
+
+        imgui.separator()
         imgui.text("Point size")
         changed, val = imgui.slider_float(
             "##PointSize",
@@ -563,8 +578,8 @@ class App:
 
 
         imgui.separator()
-        if imgui.button("Reset all"):
-            self._reset_requested = True
+        if imgui.button("Reset cloth"):
+            self._reset_cloth_requested = True
 
         imgui.end()
 
@@ -581,9 +596,9 @@ class App:
             self.camera.aspect = size[0] / size[1]
 
         # Apply reset at frame start
-        if self._reset_requested:
-            self._reset_requested = False
-            self.reset_all()
+        if self._reset_cloth_requested:
+            self._reset_cloth_requested = False
+            self.reset_cloth()
 
         now = time.perf_counter()
         dt_frame = min(1.0 / 60.0, now - self.last)
