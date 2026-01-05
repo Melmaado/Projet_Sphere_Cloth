@@ -9,10 +9,10 @@ import time
 from pathlib import Path
 
 
-# ---- ImGui UI (from reference project) ----
+# ---- ImGui UI  ----
 try:
-    from imgui_bundle import imgui  # type: ignore
-    from wgpu.utils.imgui import ImguiRenderer  # type: ignore
+    from imgui_bundle import imgui  
+    from wgpu.utils.imgui import ImguiRenderer 
 
     HAS_IMGUI = True
 except Exception:
@@ -173,7 +173,7 @@ class App:
 
         # ---- cloth simulation (geometry + buffers + compute pipelines) ----
         # [GRID POINT 1] CLOTH RESOLUTION - VERTEX COUNT
-        # Easily editable here. Automatically resizes GPU buffers.
+        # Automatically resizes GPU buffers.
         self.cloth_w = 80
         self.cloth_h = 60
         self.spacing = 0.05
