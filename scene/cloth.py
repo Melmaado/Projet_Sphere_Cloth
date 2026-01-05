@@ -37,6 +37,10 @@ def make_initial_state(width: int, height: int, spacing: float, y0: float, mass:
     pos.w   = inverse mass (0 => pinned)
     """
     n = width * height
+    # [GRID POINT 1 - CREATION]
+    # This is where the giant numpy array containing ALL vertexes are created!
+    # n = width * height (e.g. 80 * 60 = 4800 vertexes).
+    # This array is then uploaded to the GPU buffers.
     pos = np.zeros((n, 4), dtype=np.float32)
     vel = np.zeros((n, 4), dtype=np.float32)
 
@@ -84,6 +88,9 @@ class ClothSim:
         self.vtx0 = vtx0.astype(np.float32, copy=True)
         self.vertex_stride = 8 * 4  # pos3 + nrm3 + uv2
 
+        # [GRID POINT 1 - PROOF]
+        # The buffer size is calculated here based on (width * height).
+        # Changing self.cloth_w/h in app.py directly changes the memory allocated here.
         self.vertex_buffer = device.create_buffer_with_data(
             data=self.vtx0,
             usage=wgpu.BufferUsage.VERTEX | wgpu.BufferUsage.STORAGE | wgpu.BufferUsage.COPY_DST,

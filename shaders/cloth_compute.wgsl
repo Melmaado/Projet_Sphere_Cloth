@@ -20,6 +20,9 @@ struct SimParams {
     gravity: vec4<f32>,
 
     // 64..80
+    // [GRID POINT 2] RECEPTION FROM CPU
+    // This matches the Python struct.pack order.
+    // xyz = center, w = radius
     sphere: vec4<f32>, // xyz=center, w=radius
 
     // 80..96
@@ -43,6 +46,8 @@ fn xy_to_idx(x: u32, y: u32) -> u32 {
     return y * sim.dims.x + x;
 }
 
+// [GRID POINT 6 - FORMULA]
+// This function implements Hooke's Law: F = k * (dist - rest_length) * dir
 fn spring_force(pi: vec3<f32>, pj: vec3<f32>, rest: f32, k: f32) -> vec3<f32> {
     let d = pj - pi;
     let dist = length(d);
@@ -84,6 +89,9 @@ fn step(@builtin(global_invocation_id) gid: vec3<u32>) {
     var R = vec3<f32>(0.0);
 
     // --- Springs (Hooke's law) ---
+    // [GRID POINT 6 & 7] SPRINGS (HOOKE'S LAW)
+    // Three types of springs to simulate realistic cloth behavior:
+
     // structural
     if (x > 0u)       { R += spring_force(pi, pos_in[xy_to_idx(x - 1u, y)].xyz, s,  sim.k_struct); }
     if (x + 1u < w)   { R += spring_force(pi, pos_in[xy_to_idx(x + 1u, y)].xyz, s,  sim.k_struct); }
@@ -106,6 +114,8 @@ fn step(@builtin(global_invocation_id) gid: vec3<u32>) {
     R += -sim.c_d * vi;
 
     // --- Gravity force ---
+    // [GRID POINT 4] GRAVITY
+    // Apply gravitational force (F = m * g)
     R += m * sim.gravity.xyz;
 
     // --- Sphere friction (Coulomb-like, based on resultant of other forces) ---
@@ -154,8 +164,10 @@ fn step(@builtin(global_invocation_id) gid: vec3<u32>) {
     var collided = false;
     var nrm = vec3<f32>(0.0, 1.0, 0.0);
 
+    // [GRID POINT 5] CONTINUOUS COLLISION DETECTION (CCD)
+    // Check if the segment p0->p1 intersects the sphere to prevent "tunneling"
     // Continuous test for the segment [p0..p1] crossing the sphere.
-    // We try this FIRST (even if p1 is inside) to avoid far-side projection.
+    // try this FIRST (even if p1 is inside) to avoid far-side projection.
     let dseg = p1 - p0;
     let a_seg = dot(dseg, dseg);
     if (a_seg > 1e-12) {
@@ -215,6 +227,8 @@ fn step(@builtin(global_invocation_id) gid: vec3<u32>) {
         if (vn < 0.0) {
             v_new = v_new - vn * nrm;
         }
+        // [GRID POINT 8] FRICTION
+        // Tangential friction reduces velocity along the sphere surface
         // Tangential friction while in contact (0..1)
         let fr = clamp(sim.friction, 0.0, 1.0);
         let vt = v_new - dot(v_new, nrm) * nrm;

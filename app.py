@@ -172,11 +172,17 @@ class App:
         )
 
         # ---- cloth simulation (geometry + buffers + compute pipelines) ----
+        # [GRID POINT 1] CLOTH RESOLUTION - VERTEX COUNT
+        # Easily editable here. Automatically resizes GPU buffers.
         self.cloth_w = 80
         self.cloth_h = 60
         self.spacing = 0.05
 
         compute_code = read_wgsl(SHADERS / "cloth_compute.wgsl")
+
+        # [GRID POINT 1 - LOGIC]
+        # Here we pass the dimensions to the ClothSim engine.
+        # This triggers the dynamic allocation of GPU buffers inside the class.
         self.cloth = ClothSim(
             self.device,
             cloth_w=self.cloth_w,
@@ -432,7 +438,10 @@ class App:
             },
         )
 
-# ---- simulation tuning ----
+
+        # [GRID POINT 3] SIMULATION PARAMETERS
+        # Tunable here in code or via ImGui at runtime.
+        # ---- simulation tuning ----
         self.substeps = 16
         self.k_struct = 1200.0
         self.k_shear = 900.0
@@ -632,6 +641,8 @@ class App:
         self.device.queue.write_buffer(self.render_params_buffer, 0, render_params_data)
 
         # ---- update sim uniforms (matches cloth_compute.wgsl) ----
+        # [GRID POINT 2] SEND SPHERE DATA TO GPU
+        # Packing sphere position and radius into the uniform buffer
         sim_bytes = struct.pack(
             "20f4I",
             # vec4 #0
