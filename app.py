@@ -224,7 +224,7 @@ class App:
         self.sphere_radius_max = 1.50
         self.sphere_radius_step = 0.05
 
-        # Fix A: limit how fast radius can change (prevents energy injection)
+        # Limit how fast radius can change (prevents energy injection)
         self.sphere_radius_max_speed = 2  # radius units per second
 
         # Sphere mesh at radius=1 centered at origin (we update positions on the GPU buffer)
