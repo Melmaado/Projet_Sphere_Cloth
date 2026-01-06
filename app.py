@@ -461,15 +461,96 @@ class App:
         self.last = time.perf_counter()
 
         # ---- reset support ----
-        # Reset should only reset cloth position/velocity (keep UI params and skins).
-        self._reset_cloth_requested = False
+        # Soft Reset should only reset cloth position/velocity (keep UI params and skins).
+        self.soft_reset_cloth_requested = False
+        # Hard Reset should reset all.
+        self.hard_reset_cloth_requested = False
 
         # The draw loop updates the camera uniform every frame (including point_size).
         self.point_size = 6.0
 
-    def reset_cloth(self):
+    def soft_reset_cloth(self):
         """Reset only the cloth state (positions/velocities + vertex buffer)."""
         self.cloth.reset()
+
+    def hard_reset_cloth(self):
+        """Reset the entire cloth simulation and all parameters to default values."""
+        # --- time ---
+        self.t = 0.0
+        self.last = time.perf_counter()
+
+        # --- camera (garde l'aspect actuel si la fenêtre a été resize) ---
+        aspect = self.camera.aspect
+        self.camera = Camera(45, aspect, 0.1, 200, 4.0, np.pi / 4, np.pi / 6)
+
+        # --- sphere (state + limits) ---
+        self.draw_sphere = True
+        self.sphere_center = np.array([0.0, 0.0, 0.0], dtype=np.float32)
+
+        self.sphere_radius = 0.75
+        self.sphere_radius_target = 0.75
+        self.sphere_radius_min = 0.25
+        self.sphere_radius_max = 1.50
+        self.sphere_radius_step = 0.05
+        self.sphere_radius_max_speed = 2  # units/sec
+
+        # force upload right now
+        self.sphere_mesh.update(self.sphere_center, self.sphere_radius, force=True)
+
+        # --- visuals / UI choices ---
+        self.sphere_skin = 0
+        self.cloth_skin = 0
+        self.point_size = 6.0
+
+        # --- simulation params (defaults from __init__) ---
+        self.substeps = 16
+        self.k_struct = 1200.0
+        self.k_shear = 900.0
+        self.k_bend = 250.0
+
+        self.rigidity = 1.0
+        self._k_struct_base = self.k_struct
+        self._k_shear_base = self.k_shear
+        self._k_bend_base = self.k_bend
+
+        self.c_d = 1.5
+        self.vel_damping = 0.995
+        self.friction = 0.2
+        self.collision_eps = 0.02
+        self.gravity = np.array([0.0, -9.81, 0.0], dtype=np.float32)
+
+        # --- cloth: HARD restart ---
+        compute_code = read_wgsl(SHADERS / "cloth_compute.wgsl")
+        self.cloth = ClothSim(
+            self.device,
+            cloth_w=80,
+            cloth_h=60,
+            spacing=0.05,
+            y0=1.2,
+            mass=0.25,
+            compute_wgsl_code=compute_code,
+        )
+
+        # refresh all references used in loop()
+        self.nverts = self.cloth.nverts
+        self.cloth_vertex_stride = self.cloth.vertex_stride
+        self.cloth_vertex_buffer = self.cloth.vertex_buffer
+        self.cloth_index_buffer = self.cloth.index_buffer
+        self.cloth_index_count = self.cloth.index_count
+        self.cloth_wire_index_buffer = self.cloth.wire_index_buffer
+        self.cloth_wire_index_count = self.cloth.wire_index_count
+
+        self.pos_a = self.cloth.pos_a
+        self.vel_a = self.cloth.vel_a
+        self.pos_b = self.cloth.pos_b
+        self.vel_b = self.cloth.vel_b
+        self.sim_params_buffer = self.cloth.sim_params_buffer
+        self.pipe_step = self.cloth.pipe_step
+        self.pipe_write_vtx = self.cloth.pipe_write_vtx
+        self.compute_bg_ab = self.cloth.compute_bg_ab
+        self.compute_bg_ba = self.cloth.compute_bg_ba
+        self.cloth.reset()
+
 
     def process_event(self, event):
         # Disable camera interaction over the UI area (and when ImGui wants mouse).
@@ -553,7 +634,7 @@ class App:
             "##Friction",
             float(self.friction),
             0.0,
-            1.0,
+            5.0,
             "%.3f",
         )
         if changed:
@@ -573,6 +654,20 @@ class App:
             self.k_shear = self._k_shear_base * self.rigidity
             self.k_bend = self._k_bend_base * self.rigidity
 
+        imgui.text("Spring values")
+        changed1, val1 = imgui.slider_float("Structure", float(self.k_struct), 0.0, 100000.0)
+        if changed1:
+            self.k_struct = float(val1)
+
+        changed2, val2 = imgui.slider_float("Shear", float(self.k_shear), 0.0, 100000.0)
+        if changed2:
+            self.k_shear = float(val2)
+
+        changed3, val3 = imgui.slider_float("Bend", float(self.k_bend), 0.0, 1000000.0)
+        if changed3:
+            self.k_bend = float(val3)
+
+
         imgui.separator()
         imgui.text("Point size")
         changed, val = imgui.slider_float(
@@ -587,8 +682,12 @@ class App:
 
 
         imgui.separator()
-        if imgui.button("Reset cloth"):
-            self._reset_cloth_requested = True
+        if imgui.button("Reset cloth position"):
+            self.soft_reset_cloth_requested = True
+
+        imgui.separator()
+        if imgui.button("Hard reset"):
+            self.hard_reset_cloth_requested = True
 
         imgui.end()
 
@@ -605,9 +704,14 @@ class App:
             self.camera.aspect = size[0] / size[1]
 
         # Apply reset at frame start
-        if self._reset_cloth_requested:
-            self._reset_cloth_requested = False
-            self.reset_cloth()
+        if self.soft_reset_cloth_requested:
+            self.soft_reset_cloth_requested = False
+            self.soft_reset_cloth()
+
+        if self.hard_reset_cloth_requested:
+            self.hard_reset_cloth_requested = False
+            self.hard_reset_cloth()
+            # Reset other sim params if needed
 
         now = time.perf_counter()
         dt_frame = min(1.0 / 60.0, now - self.last)
